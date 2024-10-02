@@ -25,14 +25,14 @@
 
 ## Table of Contents 📚
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Advanced Usage](#advanced-usage)
-- [Configuration Options](#configuration-options)
-- [Custom Certificate Storage](#custom-certificate-storage)
-- [Integrating with Other ACME CAs](#integrating-with-other-acme-cas)
-- [TLS Configuration](#tls-configuration)
-- [License](#license)
+- [Installation](#installation-)
+- [Quick Start](#quick-start-)
+- [Advanced Usage](#advanced-usage-)
+- [Configuration Options](#configuration-options-)
+- [Custom Certificate Storage](#custom-certificate-storage-)
+- [Integrating with Other ACME CAs](#integrating-with-other-acme-cas-)
+- [TLS Configuration](#tls-configuration-)
+- [License](#license-)
 
 ---
 
