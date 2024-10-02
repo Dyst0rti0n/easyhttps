@@ -1,20 +1,20 @@
 package easyhttps
 
 import (
-	"crypto"
-	"crypto/rand"
-	"crypto/rsa"
-	"log"
-	"net/http"
-	"time"
+    "crypto"
+    "crypto/rand"
+    "crypto/rsa"
+    "log"
+    "net/http"
+    "time"
 
-	"golang.org/x/crypto/acme"
+    "golang.org/x/crypto/acme"
 )
 
-// NewACMEClient creates a custom ACME client.
+// Creates a custom ACME client.
 func NewACMEClient(directoryURL string, accountKey crypto.Signer) *acme.Client {
     if accountKey == nil {
-        // Generate a new RSA private key for the account
+        // Generate a new RSA PK
         var err error
         accountKey, err = rsa.GenerateKey(rand.Reader, 2048)
         if err != nil {

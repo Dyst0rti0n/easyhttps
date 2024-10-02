@@ -7,13 +7,12 @@ import (
     "golang.org/x/crypto/acme/autocert"
 )
 
-// CustomCache is an interface that extends autocert.Cache.
+// An interface that extends autocert.Cache
 type CustomCache interface {
     autocert.Cache
-    // You can add additional methods if needed
 }
 
-// FileCache implements CustomCache using the filesystem.
+// Implements CustomCache using the filesystem
 type FileCache struct {
     Dir string
 }
@@ -34,7 +33,7 @@ func (fc FileCache) filePath(name string) string {
     return fc.Dir + "/" + name
 }
 
-// MemoryCache implements CustomCache in memory (not persistent).
+// Implements CustomCache in memory (not persistent)
 type MemoryCache struct {
     m map[string][]byte
 }
@@ -62,5 +61,3 @@ func (mc *MemoryCache) Delete(ctx context.Context, name string) error {
     delete(mc.m, name)
     return nil
 }
-
-// Implement your own CustomCache as needed.

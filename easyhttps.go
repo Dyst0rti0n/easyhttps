@@ -1,30 +1,35 @@
 package easyhttps
 
 import (
-    "crypto/tls"
-    "net/http"
-    "strings"
+    "context"
+	"crypto/tls"
+	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+    "time"
 )
 
-// ListenAndServe starts the HTTPS server with automatic certificate management.
+// Starts HTTPS server with auto cert management.
 func ListenAndServe(addr string, handler http.Handler, options ...Option) error {
     cfg := defaultConfig()
     for _, opt := range options {
         opt(cfg)
     }
 
-    // Initialize the certificate manager
+    // Initialise
     manager, err := cfg.newCertManager()
     if err != nil {
-        return err
+        return fmt.Errorf("failed to initialise cert manager: %w", err)
     }
 
-    // Create TLS configuration
+    // Create TLS config
     tlsConfig := cfg.TLSConfig
     if tlsConfig == nil {
         tlsConfig = &tls.Config{
             GetCertificate: manager.GetCertificate,
-            MinVersion:     tls.VersionTLS12,
+            MinVersion:     tls.VersionTLS13,
             CipherSuites: []uint16{
                 tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
                 tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
@@ -34,9 +39,9 @@ func ListenAndServe(addr string, handler http.Handler, options ...Option) error 
         }
     }
 
-    // Apply user-defined TLS settings
-    if cfg.TLSConfigCustomizer != nil {
-        cfg.TLSConfigCustomizer(tlsConfig)
+    // Apply TLS settings
+    if cfg.TLSConfigCustomiser != nil {
+        cfg.TLSConfigCustomiser(tlsConfig)
     }
 
     httpsServer := &http.Server{
@@ -47,40 +52,36 @@ func ListenAndServe(addr string, handler http.Handler, options ...Option) error 
         WriteTimeout: cfg.WriteTimeout,
     }
 
-    var httpServer *http.Server
-    if cfg.RedirectHTTP {
-        httpServer = &http.Server{
-            Addr:         addr,
-            Handler:      redirectHandler(),
-            ReadTimeout:  cfg.ReadTimeout,
-            WriteTimeout: cfg.WriteTimeout,
-        }
-    } else {
-        httpServer = &http.Server{
-            Addr:         addr,
-            Handler:      manager.HTTPHandler(cfg.HTTPHandler),
-            ReadTimeout:  cfg.ReadTimeout,
-            WriteTimeout: cfg.WriteTimeout,
-        }
+    httpServer := &http.Server{
+        Addr:         addr,
+        Handler:      redirectHandler(),
+        ReadTimeout:  cfg.ReadTimeout,
+        WriteTimeout: cfg.WriteTimeout,
     }
 
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+
     errChan := make(chan error, 2)
-
     go func() {
-        if err := httpServer.ListenAndServe(); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-            errChan <- err
-        }
+        errChan <- httpServer.ListenAndServe()
     }()
 
     go func() {
-        if err := httpsServer.ListenAndServeTLS("", ""); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
-            errChan <- err
-        }
+        errChan <- httpsServer.ListenAndServeTLS("", "")
     }()
 
-    for i := 0; i < 2; i++ {
-        if err := <-errChan; err != nil {
-            return err
+    select {
+    case err := <-errChan:
+        return err
+    case <-quit:
+        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+        defer cancel()
+        if err := httpServer.Shutdown(ctx); err != nil {
+            return fmt.Errorf("HTTP server shutdown failed: %w", err)
+        }
+        if err := httpsServer.Shutdown(ctx); err != nil {
+            return fmt.Errorf("HTTPS server shutdown failed: %w", err)
         }
     }
 
