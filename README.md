@@ -6,7 +6,7 @@
 ![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![Easyhttps Logo](./logo.png)
+![Easyhttps Logo](./easyhttps.png)
 
 **EasyHTTPS** is a Go library that simplifies the process of setting up HTTPS servers with automatic certificate management using Let's Encrypt or any other ACME-compatible certificate authority. Whether you're working on small personal projects or large-scale applications, EasyHTTPS makes it easier than ever to enable HTTPS with minimal setup and advanced customization.
 
