@@ -110,7 +110,7 @@ func main() {
     })
 
     // Custom TLS configuration
-    tlsCustomizer := func(tlsConfig *tls.Config) {
+    tlsCustomiser := func(tlsConfig *tls.Config) {
         tlsConfig.MinVersion = tls.VersionTLS13
         // Add additional TLS settings as needed
     }
@@ -119,7 +119,7 @@ func main() {
     err := easyhttps.ListenAndServe(":80", mux,
         easyhttps.WithDomains("example.com", "www.example.com"),
         easyhttps.WithEmail("admin@example.com"),
-        easyhttps.WithTLSConfigCustomizer(tlsCustomizer),
+        easyhttps.WithTLSConfigCustomiser(tlsCustomiser),
         easyhttps.WithRedirectHTTP(false),
         easyhttps.WithHTTPSAddr(":8443"),
     )
@@ -138,7 +138,7 @@ EasyHTTPS provides various options to customise its behavior:
 - `WithDomains(domains ...string)`: Specify domain names for certificate issuance.
 - `WithEmail(email string)`: Set the email address for ACME registration.
 - `WithTLSConfig(tlsConfig *tls.Config)`: Provide a custom TLS configuration.
-- `WithTLSConfigCustomizer(customizer func(*tls.Config))`: Customise TLS settings with a function.
+- `WithTLSConfigCustomiser(customiser func(*tls.Config))`: Customise TLS settings with a function.
 - `WithHTTPHandler(handler http.Handler)`: Set a custom handler for HTTP challenges.
 - `WithHTTPSAddr(addr string)`: Change the address for the HTTPS server (default `":443"`).
 - `WithRedirectHTTP(redirect bool)`: Enable or disable HTTP to HTTPS redirection (default `true`).
@@ -200,10 +200,10 @@ Replace the directory URL with the ACME server of your chosen certificate author
 
 ## TLS Configuration 🔐
 
-For fine-grained control over TLS settings, use `WithTLSConfigCustomizer`:
+For fine-grained control over TLS settings, use `WithTLSConfigCustomiser`:
 
 ```go
-tlsCustomizer := func(tlsConfig *tls.Config) {
+tlsCustomiser := func(tlsConfig *tls.Config) {
     tlsConfig.MinVersion = tls.VersionTLS13
     tlsConfig.CurvePreferences = []tls.CurveID{tls.X25519, tls.CurveP256}
     tlsConfig.CipherSuites = []uint16{
@@ -213,7 +213,7 @@ tlsCustomizer := func(tlsConfig *tls.Config) {
 }
 
 err := easyhttps.ListenAndServe(":80", mux,
-    easyhttps.WithTLSConfigCustomizer(tlsCustomizer),
+    easyhttps.WithTLSConfigCustomizer(tlsCustomiser),
 )
 ```
 
