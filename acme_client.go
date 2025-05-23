@@ -4,6 +4,7 @@ import (
     "crypto"
     "crypto/rand"
     "crypto/rsa"
+    "fmt"
     "log"
     "net/http"
     "time"
@@ -12,13 +13,13 @@ import (
 )
 
 // Creates a custom ACME client.
-func NewACMEClient(directoryURL string, accountKey crypto.Signer) *acme.Client {
+func NewACMEClient(directoryURL string, accountKey crypto.Signer) (*acme.Client, error) {
     if accountKey == nil {
         // Generate a new RSA PK
         var err error
         accountKey, err = rsa.GenerateKey(rand.Reader, 2048)
         if err != nil {
-            log.Fatalf("failed to generate account key: %v", err)
+            return nil, fmt.Errorf("failed to generate account key: %w", err)
         }
     }
 
@@ -29,5 +30,5 @@ func NewACMEClient(directoryURL string, accountKey crypto.Signer) *acme.Client {
         HTTPClient: &http.Client{
             Timeout: 30 * time.Second,
         },
-    }
+    }, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
     "time"
 )
@@ -62,27 +63,55 @@ func ListenAndServe(addr string, handler http.Handler, options ...Option) error 
     quit := make(chan os.Signal, 1)
     signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
-    errChan := make(chan error, 2)
+    runErrChan := make(chan error, 2) // Renamed and still buffered
     go func() {
-        errChan <- httpServer.ListenAndServe()
+        if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            runErrChan <- fmt.Errorf("HTTP server ListenAndServe error: %w", err)
+        }
     }()
 
     go func() {
-        errChan <- httpsServer.ListenAndServeTLS("", "")
+        if err := httpsServer.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+            runErrChan <- fmt.Errorf("HTTPS server ListenAndServeTLS error: %w", err)
+        }
     }()
 
+    var startupError error
     select {
-    case err := <-errChan:
-        return err
+    case err := <-runErrChan:
+        startupError = err
+        close(quit) // Trigger shutdown path
     case <-quit:
-        ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-        defer cancel()
-        if err := httpServer.Shutdown(ctx); err != nil {
-            return fmt.Errorf("HTTP server shutdown failed: %w", err)
-        }
-        if err := httpsServer.Shutdown(ctx); err != nil {
-            return fmt.Errorf("HTTPS server shutdown failed: %w", err)
-        }
+        // OS signal received, proceed to shutdown
+    }
+
+    // Shutdown logic
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    var httpShutdownErr, httpsShutdownErr error
+
+    if err := httpServer.Shutdown(ctx); err != nil && err != http.ErrServerClosed {
+        httpShutdownErr = err
+    }
+    if err := httpsServer.Shutdown(ctx); err != nil && err != http.ErrServerClosed {
+        httpsShutdownErr = err
+    }
+
+    // Consolidate errors for return
+    var errorMessages []string
+    if startupError != nil {
+        errorMessages = append(errorMessages, startupError.Error())
+    }
+    if httpShutdownErr != nil {
+        errorMessages = append(errorMessages, fmt.Sprintf("HTTP server shutdown failed: %v", httpShutdownErr))
+    }
+    if httpsShutdownErr != nil {
+        errorMessages = append(errorMessages, fmt.Sprintf("HTTPS server shutdown failed: %v", httpsShutdownErr))
+    }
+
+    if len(errorMessages) > 0 {
+        return fmt.Errorf(strings.Join(errorMessages, "; "))
     }
 
     return nil

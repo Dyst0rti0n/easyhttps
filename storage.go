@@ -2,7 +2,9 @@ package easyhttps
 
 import (
     "context"
+    "fmt"
     "os"
+    "path/filepath"
 
     "golang.org/x/crypto/acme/autocert"
 )
@@ -22,7 +24,12 @@ func (fc FileCache) Get(ctx context.Context, name string) ([]byte, error) {
 }
 
 func (fc FileCache) Put(ctx context.Context, name string, data []byte) error {
-    return os.WriteFile(fc.filePath(name), data, 0600)
+    // The directory to ensure exists is fc.Dir.
+    // os.MkdirAll will create fc.Dir if it doesn't exist.
+    if err := os.MkdirAll(fc.Dir, 0700); err != nil { // 0700: rwx for owner
+        return fmt.Errorf("failed to create cache directory %s: %w", fc.Dir, err)
+    }
+    return os.WriteFile(fc.filePath(name), data, 0600) // 0600: rw for owner
 }
 
 func (fc FileCache) Delete(ctx context.Context, name string) error {
@@ -30,7 +37,7 @@ func (fc FileCache) Delete(ctx context.Context, name string) error {
 }
 
 func (fc FileCache) filePath(name string) string {
-    return fc.Dir + "/" + name
+    return filepath.Join(fc.Dir, name)
 }
 
 // Implements CustomCache in memory (not persistent)
