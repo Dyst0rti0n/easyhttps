@@ -23,16 +23,18 @@ type Config struct {
     ACMEClient         *acme.Client
     CertCache          autocert.Cache
     HostPolicy         autocert.HostPolicy
+    ShutdownTimeout    time.Duration
 }
 
 // Default settings.
 func defaultConfig() *Config {
     return &Config{
-        HTTPSAddr:    ":443",
-        RedirectHTTP: true,
-        ReadTimeout:  5 * time.Second,
-        WriteTimeout: 10 * time.Second,
-        CertCache:    autocert.DirCache("certcache"),
+        HTTPSAddr:       ":443",
+        RedirectHTTP:    true,
+        ReadTimeout:     5 * time.Second,
+        WriteTimeout:    10 * time.Second,
+        CertCache:       autocert.DirCache("certcache"),
+        ShutdownTimeout: 5 * time.Second,
     }
 }
 
@@ -119,6 +121,13 @@ func WithCertCache(cache autocert.Cache) Option {
 func WithHostPolicy(policy autocert.HostPolicy) Option {
     return func(c *Config) {
         c.HostPolicy = policy
+    }
+}
+
+// WithShutdownTimeout sets the graceful shutdown timeout.
+func WithShutdownTimeout(timeout time.Duration) Option {
+    return func(c *Config) {
+        c.ShutdownTimeout = timeout
     }
 }
 

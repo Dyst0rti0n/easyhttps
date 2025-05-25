@@ -51,6 +51,43 @@ func TestFileCachePutCreatesDir(t *testing.T) {
 	}
 }
 
+func TestMemoryCachePutGetDelete(t *testing.T) {
+	mc := NewMemoryCache()
+	ctx := context.Background()
+
+	testKey := "testcert"
+	testData := []byte("certificate data")
+
+	// Test Put and Get
+	if err := mc.Put(ctx, testKey, testData); err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
+
+	retrievedData, err := mc.Get(ctx, testKey)
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	}
+	if !bytes.Equal(retrievedData, testData) {
+		t.Errorf("Get returned wrong data: got %q, want %q", retrievedData, testData)
+	}
+
+	// Test Get for non-existent key
+	_, err = mc.Get(ctx, "nonexistentkey")
+	if err != os.ErrNotExist {
+		t.Errorf("Get for non-existent key returned wrong error: got %v, want %v", err, os.ErrNotExist)
+	}
+
+	// Test Delete
+	if err := mc.Delete(ctx, testKey); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+
+	_, err = mc.Get(ctx, testKey)
+	if err != os.ErrNotExist {
+		t.Errorf("Get after Delete returned wrong error: got %v, want %v", err, os.ErrNotExist)
+	}
+}
+
 func TestFileCachePutExistingDir(t *testing.T) {
 	// Create a temporary directory for the test
 	tmpDir, err := os.MkdirTemp("", "cachetest_existing")

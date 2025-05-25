@@ -47,15 +47,46 @@ func ListenAndServe(addr string, handler http.Handler, options ...Option) error 
 
     httpsServer := &http.Server{
         Addr:         cfg.HTTPSAddr,
-        Handler:      handler,
+        Handler:      handler, // This is the main handler for HTTPS traffic
         TLSConfig:    tlsConfig,
         ReadTimeout:  cfg.ReadTimeout,
         WriteTimeout: cfg.WriteTimeout,
     }
 
+    // Setup HTTP server for HTTP-01 challenge and conditional redirection
+    var effectiveHttpHandler http.Handler
+    if cfg.HTTPHandler != nil {
+        // User provided a specific handler.
+        if cfg.RedirectHTTP {
+            // RedirectHTTP is true.
+            // manager.HTTPHandler will handle ACME challenges.
+            // For other requests, it will pass them to cfg.HTTPHandler.
+            // autocert.Manager.HTTPHandler promotes its non-nil handler argument's responses to HTTPS.
+            effectiveHttpHandler = manager.HTTPHandler(cfg.HTTPHandler)
+        } else {
+            // RedirectHTTP is false. No automatic redirection to HTTPS for user's handler.
+            // ACME challenges must still work.
+            // Other requests go to cfg.HTTPHandler *without* HTTPS promotion by autocert.
+            challengeMux := http.NewServeMux()
+            challengeMux.Handle("/.well-known/acme-challenge/", manager.HTTPHandler(nil)) // manager handles ACME, then would 404 for non-ACME
+            challengeMux.Handle("/", cfg.HTTPHandler)                                     // User's handler for everything else
+            effectiveHttpHandler = challengeMux
+        }
+    } else {
+        // cfg.HTTPHandler is nil.
+        if cfg.RedirectHTTP {
+            // Standard behavior: redirect non-ACME HTTP to HTTPS. manager.HTTPHandler(nil) does this.
+            effectiveHttpHandler = manager.HTTPHandler(nil)
+        } else {
+            // No custom handler, no redirect. Only ACME.
+            // Other requests should not be redirected; return 404.
+            effectiveHttpHandler = manager.HTTPHandler(http.HandlerFunc(http.NotFound))
+        }
+    }
+
     httpServer := &http.Server{
-        Addr:         addr,
-        Handler:      redirectHandler(),
+        Addr:         addr, // e.g., ":80"
+        Handler:      effectiveHttpHandler,
         ReadTimeout:  cfg.ReadTimeout,
         WriteTimeout: cfg.WriteTimeout,
     }
@@ -86,7 +117,7 @@ func ListenAndServe(addr string, handler http.Handler, options ...Option) error 
     }
 
     // Shutdown logic
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
     defer cancel()
 
     var httpShutdownErr, httpsShutdownErr error
@@ -115,11 +146,4 @@ func ListenAndServe(addr string, handler http.Handler, options ...Option) error 
     }
 
     return nil
-}
-
-func redirectHandler() http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        target := "https://" + r.Host + r.URL.RequestURI()
-        http.Redirect(w, r, target, http.StatusMovedPermanently)
-    })
 }

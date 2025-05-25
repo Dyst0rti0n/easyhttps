@@ -5,6 +5,7 @@ import (
     "fmt"
     "os"
     "path/filepath"
+    "sync"
 
     "golang.org/x/crypto/acme/autocert"
 )
@@ -42,7 +43,8 @@ func (fc FileCache) filePath(name string) string {
 
 // Implements CustomCache in memory (not persistent)
 type MemoryCache struct {
-    m map[string][]byte
+    m  map[string][]byte
+    mu sync.RWMutex
 }
 
 func NewMemoryCache() *MemoryCache {
@@ -52,6 +54,8 @@ func NewMemoryCache() *MemoryCache {
 }
 
 func (mc *MemoryCache) Get(ctx context.Context, name string) ([]byte, error) {
+    mc.mu.RLock()
+    defer mc.mu.RUnlock()
     data, ok := mc.m[name]
     if !ok {
         return nil, os.ErrNotExist
@@ -60,11 +64,15 @@ func (mc *MemoryCache) Get(ctx context.Context, name string) ([]byte, error) {
 }
 
 func (mc *MemoryCache) Put(ctx context.Context, name string, data []byte) error {
+    mc.mu.Lock()
+    defer mc.mu.Unlock()
     mc.m[name] = data
     return nil
 }
 
 func (mc *MemoryCache) Delete(ctx context.Context, name string) error {
+    mc.mu.Lock()
+    defer mc.mu.Unlock()
     delete(mc.m, name)
     return nil
 }
